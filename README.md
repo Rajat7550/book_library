@@ -19,13 +19,5 @@ This is a simple Flask application that allows users to manage a collection of b
  2. Open your web browser and navigate to http://127.0.0.1:5000/.
  3. Use the application to add books, list them, and perform searches.
 
-File Structure
-/book-management-app
-│
-├── app.py                 # Main application file
-├── templates/             # Folder for HTML templates
-│   ├── index.html         # Home page
-│   ├── add_book.html      # Page to add a new book
-│   └── list_books.html    # Page to list and search books
-└── README.md              # This README file
+
  
