@@ -1,64 +1,57 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, request, jsonify
+from models import db, Book
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Required for flash messages
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///books.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db.init_app(app)
 
-# In-memory storage for books
-books = []
+with app.app_context():
+    db.create_all()  # Create the database tables
 
-# Home route
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return "Welcome to the Book Library API!"
 
-# Route to add a new book
-@app.route('/add', methods=['GET', 'POST'])
+
+@app.route('/books', methods=['POST'])
 def add_book():
-    if request.method == 'POST':
-        title = request.form.get('title')
-        author = request.form.get('author')
-        genre = request.form.get('genre')
+    data = request.get_json()
+    if not data or 'title' not in data or 'author' not in data or 'genre' not in data:
+        return jsonify({"error": "Invalid input"}), 400
 
-        if not title or not author or not genre:
-            flash('Title, author, and genre are required!')
-            return redirect(url_for('add_book'))
+    new_book = Book(title=data['title'], author=data['author'], genre=data['genre'])
+    db.session.add(new_book)
+    db.session.commit()
+    return jsonify(new_book.to_dict()), 201
 
-        book = {
-            'id': len(books) + 1,
-            'title': title,
-            'author': author,
-            'genre': genre
-        }
-        books.append(book)
-        flash('Book added successfully!')
-        return redirect(url_for('list_books'))
 
-    return render_template('add_book.html')
-
-# Route to list all books or filter by genre or author
 @app.route('/books', methods=['GET'])
 def list_books():
-    author = request.args.get('author')
     genre = request.args.get('genre')
+    author = request.args.get('author')
 
-    filtered_books = books
-    if author:
-        filtered_books = [book for book in filtered_books if book['author'] == author]
+    query = Book.query
     if genre:
-        filtered_books = [book for book in filtered_books if book['genre'] == genre]
+        query = query.filter_by(genre=genre)
+    if author:
+        query = query.filter_by(author=author)
 
-    return render_template('list_books.html', books=filtered_books)
+    books = query.all()
+    return jsonify([book.to_dict() for book in books]), 200
 
-# Route to search for books by title or author
+
 @app.route('/search', methods=['GET'])
 def search_books():
     query = request.args.get('query')
     if not query:
-        flash('Query parameter is required!')
-        return redirect(url_for('list_books'))
+        return jsonify({"error": "No search query provided"}), 400
 
-    results = [book for book in books if query.lower() in book['title'].lower() or query.lower() in book['author'].lower()]
-    return render_template('list_books.html', books=results)
+    books = Book.query.filter((Book.title.contains(query)) | (Book.author.contains(query))).all()
+    return jsonify([book.to_dict() for book in books]), 200
+
+
+# Add other routes here...
 
 if __name__ == '__main__':
     app.run(debug=True)
